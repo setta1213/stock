@@ -6,24 +6,35 @@ const StockModal = ({ isOpen, onClose, onSuccess, apiBase, type, product }) => {
     quantity: 1,
     expiry_date: "",
     cost_price: 0,
+    sale_price: 0,
+    wholesale_price: 0,
+    note: "" // state note ต้องมี
   });
 
-  // Reset ค่าเมื่อเปิด Modal ใหม่
   useEffect(() => {
     if (isOpen) {
-      setTransaction({ quantity: 1, expiry_date: "", cost_price: 0 });
+      setTransaction({ quantity: 1, expiry_date: "", cost_price: 0, sale_price: 0, wholesale_price: 0, note: "" });
     }
   }, [isOpen]);
 
   const handleSubmit = async (e) => {
     e.preventDefault();
     const endpoint = type === "IN" ? "/stock_in.php" : "/stock_out.php";
+    // ส่ง note ไปด้วยเสมอ
     const payload = { ...transaction, type, product_id: product?.id };
 
     try {
-      const res = await axios.post(`${apiBase}${endpoint}`, payload);
+      const res = await axios.post(`${apiBase}${endpoint}`, payload, {
+        withCredentials: true 
+      });
+
       if (res.data.status === "success") {
-        alert(res.data.message);
+        if (type === "OUT" && res.data.summary && res.data.summary.length > 0) {
+            const summaryText = res.data.summary.join("\n");
+            alert(`✅ ตัดสต็อกสำเร็จ!\n\nกรุณาหยิบสินค้าตามรายการนี้:\n${summaryText}`);
+        } else {
+            alert(res.data.message);
+        }
         onSuccess();
         onClose();
       } else {
@@ -56,6 +67,7 @@ const StockModal = ({ isOpen, onClose, onSuccess, apiBase, type, product }) => {
             />
           </div>
 
+          {/* ส่วนรับเข้า (เฉพาะ IN) */}
           {type === "IN" && (
             <>
               <div>
@@ -69,7 +81,7 @@ const StockModal = ({ isOpen, onClose, onSuccess, apiBase, type, product }) => {
                 />
               </div>
               <div>
-                <label className="block text-sm font-medium text-gray-700">วันหมดอายุ (Expiry Date)</label>
+                <label className="block text-sm font-medium text-gray-700">วันหมดอายุ</label>
                 <input
                   type="date"
                   className="w-full border p-2 rounded bg-yellow-50"
@@ -77,8 +89,30 @@ const StockModal = ({ isOpen, onClose, onSuccess, apiBase, type, product }) => {
                   onChange={(e) => setTransaction({ ...transaction, expiry_date: e.target.value })}
                 />
               </div>
+              <div className="grid grid-cols-2 gap-2 bg-gray-50 p-2 rounded border">
+                <div>
+                   <label className="block text-sm font-medium text-blue-700">ราคาปลีก</label>
+                   <input type="number" step="0.01" className="w-full border p-2 rounded" required onChange={(e) => setTransaction({ ...transaction, sale_price: e.target.value })} />
+                </div>
+                <div>
+                   <label className="block text-sm font-medium text-purple-700">ราคาส่ง</label>
+                   <input type="number" step="0.01" className="w-full border p-2 rounded" required onChange={(e) => setTransaction({ ...transaction, wholesale_price: e.target.value })} />
+                </div>
+              </div>
             </>
           )}
+
+          {/* ✅ ย้าย "หมายเหตุ" ออกมาอยู่นอกวงเล็บ IN (เพื่อให้ OUT ก็เห็นด้วย) */}
+          <div>
+            <label className="block text-sm font-medium text-gray-700">หมายเหตุ (Note)</label>
+            <input 
+                type="text" 
+                className="w-full border p-2 rounded" 
+                placeholder="เช่น ขายหน้าร้าน, ของแถม, เสียหาย"
+                value={transaction.note}
+                onChange={(e) => setTransaction({ ...transaction, note: e.target.value })} 
+            />
+          </div>
 
           {type === "OUT" && (
             <p className="text-sm text-gray-500 bg-gray-100 p-2 rounded">

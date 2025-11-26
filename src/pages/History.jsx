@@ -1,11 +1,11 @@
 import { useState, useEffect } from 'react';
 import axios from 'axios';
-import { Link } from 'react-router-dom'; // ลิงก์สำหรับกลับหน้าแรก
+import { Link } from 'react-router-dom';
 
-// ** อย่าลืมแก้ Port ให้ตรงกับ App.jsx **
 const API_BASE = "https://api2.koishop.click/stock/stock-api";
 
 function History() {
+  // เริ่มต้นเป็น array ว่างเสมอ เพื่อป้องกัน .map error
   const [transactions, setTransactions] = useState([]);
 
   useEffect(() => {
@@ -14,10 +14,19 @@ function History() {
 
   const fetchHistory = async () => {
     try {
-      const res = await axios.get(`${API_BASE}/get_history.php`);
-      setTransactions(res.data);
+      // ✅ แก้ไข 1: ส่ง Session/Cookie ไปด้วย
+      const res = await axios.get(`${API_BASE}/get_history.php`, { withCredentials: true });
+      
+      // ✅ แก้ไข 2: เช็คว่าเป็น Array จริงไหม
+      if (Array.isArray(res.data)) {
+        setTransactions(res.data);
+      } else {
+        console.warn("History API Error:", res.data);
+        setTransactions([]); // เคลียร์เป็นว่าง
+      }
     } catch (error) {
-      console.error("Error:", error);
+      console.error("Error fetching history:", error);
+      setTransactions([]);
     }
   };
 
@@ -47,9 +56,8 @@ function History() {
               </tr>
             </thead>
             <tbody>
-              {transactions.length === 0 ? (
-                <tr><td colSpan="6" className="p-8 text-center text-gray-400">ยังไม่มีรายการ</td></tr>
-              ) : (
+              {/* ✅ แก้ไข 3: เช็ค Array ก่อนวนลูปเสมอ */}
+              {Array.isArray(transactions) && transactions.length > 0 ? (
                 transactions.map((t) => (
                   <tr key={t.id} className="hover:bg-gray-50 border-b last:border-0">
                     <td className="p-4 text-sm text-gray-500">
@@ -72,7 +80,6 @@ function History() {
                       </div>
                     </td>
                     <td className="p-4 text-sm text-gray-600">
-                       {/* แสดงข้อมูลล็อต ถ้ามี */}
                        {t.expiry_date ? (
                          <div>
                            <span className="block text-xs text-gray-400">Exp: {t.expiry_date}</span>
@@ -86,6 +93,12 @@ function History() {
                     <td className="p-4 text-sm text-gray-500">{t.note}</td>
                   </tr>
                 ))
+              ) : (
+                <tr>
+                   <td colSpan="6" className="p-8 text-center text-gray-400">
+                     ยังไม่มีรายการ หรือ ไม่สามารถดึงข้อมูลได้ (กรุณา Login ใหม่)
+                   </td>
+                </tr>
               )}
             </tbody>
           </table>
